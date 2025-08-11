@@ -63,8 +63,4 @@ Kalau ada masalah, cek konfigurasi database dan SMTP.
 
 ---
 
-Contact: Leo (contoh)
-
-```
-
-```
+Contact: Leo (karunialeo@gmail.com)
