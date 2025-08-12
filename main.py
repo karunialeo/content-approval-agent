@@ -38,20 +38,20 @@ def check_approvals():
         else:
             for row in approvals:
                 approval_id = row["id"]
-                approval_uuid = row["uuid"]
+                judul_episode = row["judul_episode"]
                 if can_send_email(conn, approval_id):
                     approval_data = {
                         "head_name": row["head_name"],
                         "nama_program": row["nama_program"],
                         "judul_episode": row["judul_episode"],
-                        "pembuat": row["pembuat"],
+                        "inisiator": row["inisiator"],
                         "approval_uuid": row["uuid"],
                     }
                     if send_email(row["email"], approval_data):
                         insert_email_log(conn, approval_id)
                 else:
                     print(
-                        f"[{datetime.now()}] Email untuk approval {approval_uuid} sudah dikirim dalam 24 jam terakhir, skip."
+                        f"[{datetime.now()}] Email untuk approval '{judul_episode}' sudah dikirim dalam 24 jam terakhir, skip."
                     )
 
         conn.close()

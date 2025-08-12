@@ -24,7 +24,7 @@ def send_email(to_email, approval_data):
             head_name=approval_data["head_name"],
             nama_program=approval_data["nama_program"],
             judul_episode=approval_data["judul_episode"],
-            pembuat=approval_data["pembuat"],
+            inisiator=approval_data["inisiator"],
             app_url=APP_URL,
             approval_uuid=approval_data["approval_uuid"],
         )

@@ -22,7 +22,7 @@ def fetch_pending_approvals(conn):
     SELECT pa.id, pa.uuid, pa.program_request_id, pa.status, pa.created_at,
            head.name as head_name, head.email,
            pr.nama_program, pr.judul_episode,
-           creator.name as pembuat
+           creator.name as inisiator
     FROM program_approvals pa
     JOIN users head ON head.id = pa.head_user_id
     JOIN program_requests pr ON pr.id = pa.program_request_id
