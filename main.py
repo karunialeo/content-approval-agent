@@ -10,6 +10,7 @@ from db import (
 from email_sender import send_email, send_email_to_ceo
 from dotenv import load_dotenv
 import os
+from datetime import datetime, timedelta
 
 load_dotenv()
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 10))  # menit
@@ -31,37 +32,49 @@ def check_approvals():
     c_levels = get_c_level_users(conn)
 
     # ======= CEO per program request =======
-    ceo_sent_programs = set()
     for program in approvals:
-        program_id = program["program_request_id"]
+        # cek log berdasarkan program_request_id, email_type="ceo"
+        last_email_ceo = get_last_email_log(conn, program["program_request_id"], "ceo")
+        if not last_email_ceo:  # belum pernah dikirimi CEO
+            for ceo in c_levels:
+                # buat approval record CEO
+                ceo_approval_id = insert_ceo_approval(
+                    conn, program["program_request_id"], ceo["id"]
+                )
 
-        # Kirim ke CEO hanya jika belum pernah dikirim untuk program ini
-        if program_id not in ceo_sent_programs:
-            last_email_ceo = get_last_email_log(conn, program_id, "ceo")
-            if not last_email_ceo:
-                for ceo in c_levels:
-                    # Insert approval CEO dan ambil UUID baru
-                    ceo_approval_id = insert_ceo_approval(conn, program_id, ceo["id"])
+                ceo_email_data = {
+                    "ceo_name": ceo["name"],
+                    "nama_program": program["nama_program"],
+                    "judul_episode": program["judul_episode"],
+                    "inisiator": program["pembuat"],
+                    "approval_uuid": program["uuid"],
+                    "app_url": APP_URL,
+                }
 
-                    ceo_email_data = {
-                        "ceo_name": ceo["name"],
-                        "nama_program": program["nama_program"],
-                        "judul_episode": program["judul_episode"],
-                        "inisiator": program["pembuat"],
-                        "approval_uuid": ceo_approval_id,  # pastikan pakai approval baru
-                        "app_url": APP_URL,
-                    }
+                send_email_to_ceo(ceo["email"], ceo_email_data)
+                insert_email_log(
+                    conn, ceo_approval_id, program["program_request_id"], "ceo"
+                )
 
-                    send_email_to_ceo(ceo["email"], ceo_email_data)
-                    insert_email_log(conn, ceo_approval_id, program_id, "ceo")
-
-                print(f"📤 CEO dikirimin approval {program['nama_program']}")
-                ceo_sent_programs.add(program_id)
+            print(f"📤 CEO dikirimin approval {program['nama_program']}")
+        else:
+            print(f"⏩ CEO sudah dikirimi {program['nama_program']}, skip")
 
     # ======= Head per 24 jam =======
     for row in approvals:
         last_email_head = get_last_email_log(conn, row["id"], "head")
+        send_again = False
+
         if not last_email_head:
+            send_again = True
+        else:
+            sent_at = last_email_head["sent_at"]
+            if isinstance(sent_at, str):
+                sent_at = datetime.strptime(sent_at, "%Y-%m-%d %H:%M:%S")
+            if datetime.now() - sent_at > timedelta(hours=24):
+                send_again = True
+
+        if send_again:
             head_email_data = {
                 "head_name": row["head_name"],
                 "nama_program": row["nama_program"],
@@ -74,6 +87,10 @@ def check_approvals():
             insert_email_log(conn, row["id"], row["program_request_id"], "head")
             print(
                 f"📤 Head {row['head_name']} dikirimin reminder {row['nama_program']}"
+            )
+        else:
+            print(
+                f"⏩ Head {row['head_name']} sudah dikirimi {row['nama_program']}, skip"
             )
 
     conn.close()
