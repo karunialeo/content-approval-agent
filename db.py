@@ -41,6 +41,7 @@ def fetch_pending_approvals(conn):
     JOIN users creator ON creator.id = pr.user_id
     WHERE pa.status = 'pending'
       AND TIMESTAMPDIFF(HOUR, pa.created_at, NOW()) > 24
+      AND pr.deleted_at IS NULL
     """
     with conn.cursor() as cursor:
         cursor.execute(sql)
@@ -70,12 +71,24 @@ def insert_email_log(conn, approval_id, program_request_id, email_type):
 
 
 def insert_ceo_approval(conn, program_request_id, ceo_id):
+    # Cek dulu apakah program request masih ada (deleted_at IS NULL)
+    sql_check = "SELECT id FROM program_requests WHERE id = %s AND deleted_at IS NULL"
+    with conn.cursor() as cursor:
+        cursor.execute(sql_check, (program_request_id,))
+        result = cursor.fetchone()
+        if not result:
+            print(
+                f"⚠️ Program request {program_request_id} sudah dihapus. CEO approval dibatalkan."
+            )
+            return None
+
+    # Insert approval CEO
     new_uuid = str(uuid.uuid4())
-    sql = """
+    sql_insert = """
     INSERT INTO program_approvals (program_request_id, head_user_id, uuid, status, created_at)
     VALUES (%s, %s, %s, 'pending', NOW())
     """
     with conn.cursor() as cursor:
-        cursor.execute(sql, (program_request_id, ceo_id, new_uuid))
-    conn.commit()
-    return cursor.lastrowid
+        cursor.execute(sql_insert, (program_request_id, ceo_id, new_uuid))
+        conn.commit()
+        return cursor.lastrowid
