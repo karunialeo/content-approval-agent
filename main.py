@@ -1,44 +1,69 @@
 # main.py
-from db import (
-    get_connection,
-    fetch_pending_approvals,
-    get_c_level_users,
-    get_last_email_log,
-    insert_email_log,
-    insert_ceo_approval,
-)
-from datetime import datetime
+import time
+from db import get_connection, fetch_pending_approvals, get_c_level_users
+from db import get_last_email_log, insert_email_log, insert_ceo_approval
+from email_sender import send_email  # pastikan ini ada sesuai projectmu
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 10))  # menit
 
 
 def check_approvals():
     conn = get_connection()
+    if not conn:
+        print("❌ Tidak bisa konek ke DB")
+        return
+
+    # Ambil pending approvals
     approvals = fetch_pending_approvals(conn)
+    if not approvals:
+        print("✅ Tidak ada approval pending")
+        conn.close()
+        return
+
+    # Ambil semua C-Level
     c_levels = get_c_level_users(conn)
 
-    for approval in approvals:
-        # 1️⃣ C-Level: kirim sekali per approval
+    for row in approvals:
+        # ======= C-Level =======
         for ceo in c_levels:
-            last_email = get_last_email_log(conn, approval["id"], ceo["id"])
+            last_email = get_last_email_log(conn, row["id"], "ceo")
             if not last_email:
-                # kirim email ke ceo["email"]
-                print(
-                    f"Sending email to CEO {ceo['name']} for program request {approval['program_request_id']}"
+                ceo_approval_id = insert_ceo_approval(
+                    conn, row["program_request_id"], ceo["id"]
                 )
-                insert_email_log(conn, approval["id"], ceo["id"])
+                insert_email_log(
+                    conn, ceo_approval_id, row["program_request_id"], "ceo"
+                )
+                send_email(
+                    ceo["email"],
+                    f"Approval needed for {row['nama_program']}",
+                    "Content here...",
+                )
+                print(f"📤 CEO {ceo['name']} dikirimin approval {row['nama_program']}")
 
-        # 2️⃣ Head biasa: kirim 1x per 24 jam
-        head_id = approval["head_user_id"]
-        last_email = get_last_email_log(conn, approval["id"], head_id)
-        if (
-            not last_email
-            or (datetime.now() - last_email["sent_at"]).total_seconds() > 86400
-        ):
-            # kirim email ke head
-            print(
-                f"Sending email to Head {approval['head_name']} for program request {approval['program_request_id']}"
+        # ======= Head =======
+        last_email_head = get_last_email_log(conn, row["id"], "head")
+        if not last_email_head:
+            insert_email_log(conn, row["id"], row["program_request_id"], "head")
+            send_email(
+                row["email"],
+                f"Approval pending: {row['nama_program']}",
+                "Content here...",
             )
-            insert_email_log(conn, approval["id"], head_id)
+            print(
+                f"📤 Head {row['head_name']} dikirimin reminder {row['nama_program']}"
+            )
+
+    conn.close()
 
 
 if __name__ == "__main__":
-    check_approvals()
+    while True:
+        try:
+            check_approvals()
+        except Exception as e:
+            print("❌ Error saat check approvals:", e)
+        time.sleep(CHECK_INTERVAL * 60)
