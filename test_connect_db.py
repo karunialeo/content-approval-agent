@@ -1,9 +1,8 @@
 from db import get_connection
 
-try:
-    conn = get_connection()
+conn = get_connection()
+if conn:
     print("✅ Koneksi ke database berhasil!")
     conn.close()
-except Exception as e:
-    print("❌ Gagal konek ke database:")
-    print(e)
+else:
+    print("❌ Gagal konek ke database")
