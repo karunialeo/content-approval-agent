@@ -10,10 +10,17 @@ from db import (
     fetch_pending_approvals,
     get_last_email_log,
     insert_email_log,
+    get_last_ceo_log,
+    insert_ceo_log,
 )
 from email_sender import send_email
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 CHECK_INTERVAL_MINUTES = int(os.getenv("CHECK_INTERVAL", 10))
+CEO_EMAIL = os.getenv("CEO_EMAIL", "gultom4715@gmail.com")
 
 running = True
 
@@ -25,7 +32,7 @@ def can_send_email(conn, approval_id):
     sent_at = last_sent["sent_at"]
     now = datetime.now()
     diff = now - sent_at
-    return diff.total_seconds() > 24 * 3600  # lebih dari 24 jam
+    return diff.total_seconds() > 24 * 3600
 
 
 def check_approvals():
@@ -36,9 +43,14 @@ def check_approvals():
         if not approvals:
             print(f"[{datetime.now()}] Tidak ada approval pending > 24 jam.")
         else:
+            program_requests_seen = set()
+
             for row in approvals:
                 approval_id = row["id"]
+                program_request_id = row["program_request_id"]
                 judul_episode = row["judul_episode"]
+
+                # Kirim email ke head
                 if can_send_email(conn, approval_id):
                     approval_data = {
                         "head_name": row["head_name"],
@@ -51,8 +63,23 @@ def check_approvals():
                         insert_email_log(conn, approval_id)
                 else:
                     print(
-                        f"[{datetime.now()}] Email untuk approval '{judul_episode}' sudah dikirim dalam 24 jam terakhir, skip."
+                        f"[{datetime.now()}] Email head '{judul_episode}' sudah dikirim <24 jam, skip."
                     )
+
+                # Kirim email ke CEO sekali per program_request_id
+                if program_request_id not in program_requests_seen:
+                    last_ceo_sent = get_last_ceo_log(conn, program_request_id)
+                    if not last_ceo_sent:
+                        ceo_data = {
+                            "head_name": "CEO",
+                            "nama_program": row["nama_program"],
+                            "judul_episode": row["judul_episode"],
+                            "inisiator": row["inisiator"],
+                            "approval_uuid": row["uuid"],
+                        }
+                        if send_email(CEO_EMAIL, ceo_data):
+                            insert_ceo_log(conn, program_request_id)
+                    program_requests_seen.add(program_request_id)
 
         conn.close()
     except Exception as e:
