@@ -33,17 +33,34 @@ def check_approvals():
 
     # ======= CEO per program request =======
     for program in approvals:
-        last_email_ceo = get_last_email_log(conn, program["program_request_id"], "ceo")
-        if last_email_ceo:
-            print(f"⏸ CEO sudah dikirimin email untuk {program['nama_program']}, skip")
-            continue
-
         for ceo in c_levels:
-            # Cek apakah approval CEO sudah ada
-            ceo_approval_id = insert_ceo_approval(
-                conn, program["program_request_id"], ceo["id"]
-            )
+            # cek dulu apakah approval CEO sudah ada
+            sql = """
+            SELECT id, uuid FROM program_approvals
+            WHERE program_request_id=%s AND head_user_id=%s
+            """
+            with conn.cursor() as cursor:
+                cursor.execute(sql, (program["program_request_id"], ceo["id"]))
+                existing = cursor.fetchone()
 
+            if existing:
+                ceo_approval_id = existing["id"]
+                ceo_uuid = existing["uuid"]
+            else:
+                ceo_approval_id = insert_ceo_approval(
+                    conn, program["program_request_id"], ceo["id"]
+                )
+                ceo_uuid = None  # uuid akan diambil dari insert jika perlu
+
+            # cek log, apakah email CEO sudah dikirim
+            last_email_ceo = get_last_email_log(conn, ceo_approval_id, "ceo")
+            if last_email_ceo:
+                print(
+                    f"[{datetime.now()}] Skip email CEO untuk program '{program['nama_program']}'"
+                )
+                continue
+
+            # kirim email
             ceo_email_data = {
                 "ceo_name": ceo["name"],
                 "nama_program": program["nama_program"],
@@ -52,39 +69,26 @@ def check_approvals():
                 "approval_uuid": program["uuid"],
                 "app_url": APP_URL,
             }
-
             send_email_to_ceo(ceo["email"], ceo_email_data)
             insert_email_log(
                 conn, ceo_approval_id, program["program_request_id"], "ceo"
             )
-
-        print(f"📤 CEO dikirimin approval {program['nama_program']}")
+            print(
+                f"[{datetime.now()}] 📤 CEO dikirimin approval {program['nama_program']}"
+            )
 
     # ======= Head per 24 jam =======
     for row in approvals:
         last_email_head = get_last_email_log(conn, row["id"], "head")
-        send_head = False
-
+        send_email_head = False
         if not last_email_head:
-            send_head = True
-            print(
-                f"🆕 Head {row['head_name']} belum pernah dikirimin email, akan dikirim"
-            )
+            send_email_head = True
         else:
             sent_at = last_email_head["sent_at"]
-            if isinstance(sent_at, str):
-                sent_at = datetime.strptime(sent_at, "%Y-%m-%d %H:%M:%S")
-            if datetime.now() - sent_at > timedelta(hours=24):
-                send_head = True
-                print(
-                    f"⏰ Sudah >24 jam sejak email terakhir ke Head {row['head_name']}, akan dikirim"
-                )
-            else:
-                print(
-                    f"⏸ Head {row['head_name']} sudah dikirimin email kurang dari 24 jam, skip"
-                )
+            if sent_at + timedelta(hours=24) < datetime.now():
+                send_email_head = True
 
-        if send_head:
+        if send_email_head:
             head_email_data = {
                 "head_name": row["head_name"],
                 "nama_program": row["nama_program"],
@@ -96,7 +100,11 @@ def check_approvals():
             send_email(row["email"], head_email_data)
             insert_email_log(conn, row["id"], row["program_request_id"], "head")
             print(
-                f"📤 Head {row['head_name']} dikirimin reminder {row['nama_program']}"
+                f"[{datetime.now()}] 📤 Head {row['head_name']} dikirimin reminder {row['nama_program']}"
+            )
+        else:
+            print(
+                f"[{datetime.now()}] Skip email Head untuk program '{row['nama_program']}'"
             )
 
     conn.close()
@@ -107,5 +115,5 @@ if __name__ == "__main__":
         try:
             check_approvals()
         except Exception as e:
-            print("❌ Error saat check approvals:", e)
+            print(f"[{datetime.now()}] ❌ Error saat check approvals: {e}")
         time.sleep(CHECK_INTERVAL * 60)
