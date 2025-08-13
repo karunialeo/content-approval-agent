@@ -1,12 +1,18 @@
 import time
-from db import get_connection, fetch_pending_approvals, get_c_level_users
-from db import get_last_email_log, insert_email_log, insert_ceo_approval
+from db import (
+    get_connection,
+    fetch_pending_approvals,
+    get_c_level_users,
+    get_last_email_log,
+    insert_email_log,
+)
 from email_sender import send_email, send_email_to_ceo
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 10))  # menit
+APP_URL = os.getenv("APP_URL", "http://localhost")
 
 
 def check_approvals():
@@ -23,25 +29,37 @@ def check_approvals():
 
     c_levels = get_c_level_users(conn)
 
-    for row in approvals:
-        # ======= C-Level =======
-        for ceo in c_levels:
-            last_email = get_last_email_log(conn, row["id"], "ceo")
-            if not last_email:
-                ceo_approval_id = insert_ceo_approval(
-                    conn, row["program_request_id"], ceo["id"]
-                )
-                insert_email_log(
-                    conn, ceo_approval_id, row["program_request_id"], "ceo"
-                )
-                send_email_to_ceo(ceo["email"], row)
-                print(f"📤 CEO {ceo['name']} dikirimin approval {row['nama_program']}")
+    # ======= CEO per program request =======
+    for program in approvals:
+        last_email_ceo = get_last_email_log(conn, program["program_request_id"], "ceo")
+        if not last_email_ceo:
+            ceo_email_data = {
+                "ceo_name": ", ".join([ceo["name"] for ceo in c_levels]),
+                "nama_program": program["nama_program"],
+                "judul_episode": program["judul_episode"],
+                "inisiator": program["pembuat"],
+                "approval_uuid": program["uuid"],
+                "app_url": APP_URL,
+            }
+            for ceo in c_levels:
+                send_email_to_ceo(ceo["email"], ceo_email_data)
+            insert_email_log(conn, None, program["program_request_id"], "ceo")
+            print(f"📤 CEO dikirimin approval {program['nama_program']}")
 
-        # ======= Head =======
+    # ======= Head per 24 jam =======
+    for row in approvals:
         last_email_head = get_last_email_log(conn, row["id"], "head")
         if not last_email_head:
+            head_email_data = {
+                "head_name": row["head_name"],
+                "nama_program": row["nama_program"],
+                "judul_episode": row["judul_episode"],
+                "inisiator": row["pembuat"],
+                "approval_uuid": row["uuid"],
+                "app_url": APP_URL,
+            }
+            send_email(row["email"], head_email_data)
             insert_email_log(conn, row["id"], row["program_request_id"], "head")
-            send_email(row["email"], row)
             print(
                 f"📤 Head {row['head_name']} dikirimin reminder {row['nama_program']}"
             )
