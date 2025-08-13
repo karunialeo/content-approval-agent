@@ -31,30 +31,32 @@ def check_approvals():
     c_levels = get_c_level_users(conn)
 
     # ======= CEO per program request =======
+    ceo_sent_programs = set()
     for program in approvals:
-        last_email_ceo = get_last_email_log(conn, program["program_request_id"], "ceo")
-        if not last_email_ceo:
-            for ceo in c_levels:
-                # Buat approval record untuk CEO supaya ada approval_id
-                ceo_approval_id = insert_ceo_approval(
-                    conn, program["program_request_id"], ceo["id"]
-                )
+        program_id = program["program_request_id"]
 
-                ceo_email_data = {
-                    "ceo_name": ceo["name"],
-                    "nama_program": program["nama_program"],
-                    "judul_episode": program["judul_episode"],
-                    "inisiator": program["pembuat"],
-                    "approval_uuid": program["uuid"],
-                    "app_url": APP_URL,
-                }
+        # Kirim ke CEO hanya jika belum pernah dikirim untuk program ini
+        if program_id not in ceo_sent_programs:
+            last_email_ceo = get_last_email_log(conn, program_id, "ceo")
+            if not last_email_ceo:
+                for ceo in c_levels:
+                    # Insert approval CEO dan ambil UUID baru
+                    ceo_approval_id = insert_ceo_approval(conn, program_id, ceo["id"])
 
-                send_email_to_ceo(ceo["email"], ceo_email_data)
-                insert_email_log(
-                    conn, ceo_approval_id, program["program_request_id"], "ceo"
-                )
+                    ceo_email_data = {
+                        "ceo_name": ceo["name"],
+                        "nama_program": program["nama_program"],
+                        "judul_episode": program["judul_episode"],
+                        "inisiator": program["pembuat"],
+                        "approval_uuid": ceo_approval_id,  # pastikan pakai approval baru
+                        "app_url": APP_URL,
+                    }
 
-            print(f"📤 CEO dikirimin approval {program['nama_program']}")
+                    send_email_to_ceo(ceo["email"], ceo_email_data)
+                    insert_email_log(conn, ceo_approval_id, program_id, "ceo")
+
+                print(f"📤 CEO dikirimin approval {program['nama_program']}")
+                ceo_sent_programs.add(program_id)
 
     # ======= Head per 24 jam =======
     for row in approvals:
