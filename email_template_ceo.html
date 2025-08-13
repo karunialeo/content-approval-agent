@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pengingat Feedback Program</title>
+  </head>
+  <body>
+    <h2>Hi, {{ ceo_name }},</h2>
+    <p>Program berikut masih menunggu persetujuan dari head:</p>
+
+    <ul>
+      <li><strong>Nama Program:</strong> {{ nama_program }}</li>
+      <li><strong>Judul Episode:</strong> {{ judul_episode }}</li>
+      <li><strong>Dibuat oleh:</strong> {{ inisiator }}</li>
+    </ul>
+
+    <p>Klik tombol di bawah untuk memberikan feedback:</p>
+
+    <a
+      href="{{ app_url }}/approval/{{ approval_uuid }}"
+      style="
+        display: inline-block;
+        padding: 10px 20px;
+        color: white;
+        background: #1d4ed8;
+        text-decoration: none;
+        border-radius: 5px;
+      "
+    >
+      Review Now
+    </a>
+
+    <p>Terima kasih!</p>
+  </body>
+</html>
