@@ -10,6 +10,7 @@ from db import (
 from email_sender import send_email, send_email_to_ceo
 from dotenv import load_dotenv
 import os
+from datetime import datetime, timedelta
 
 load_dotenv()
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", 10))  # menit
@@ -30,53 +31,72 @@ def check_approvals():
 
     c_levels = get_c_level_users(conn)
 
+    # ======= CEO per program request =======
     for program in approvals:
-        # ===== CEO =====
+        last_email_ceo = get_last_email_log(conn, program["program_request_id"], "ceo")
+        if last_email_ceo:
+            print(f"⏸ CEO sudah dikirimin email untuk {program['nama_program']}, skip")
+            continue
+
         for ceo in c_levels:
-            # cek dulu apakah approval CEO sudah ada
-            ceo_approval = program.get(f"ceo_approval_id_{ceo['id']}")
-            if not ceo_approval:
-                # buat approval record untuk CEO
-                ceo_approval_id = insert_ceo_approval(
-                    conn, program["program_request_id"], ceo["id"]
-                )
-            else:
-                ceo_approval_id = ceo_approval
+            # Cek apakah approval CEO sudah ada
+            ceo_approval_id = insert_ceo_approval(
+                conn, program["program_request_id"], ceo["id"]
+            )
 
-            # cek log apakah email CEO udah pernah dikirim
-            last_email_ceo = get_last_email_log(conn, ceo_approval_id, "ceo")
-            if not last_email_ceo:
-                ceo_email_data = {
-                    "ceo_name": ceo["name"],
-                    "nama_program": program["nama_program"],
-                    "judul_episode": program["judul_episode"],
-                    "inisiator": program["pembuat"],
-                    "approval_uuid": program["uuid"],
-                    "app_url": APP_URL,
-                }
-                send_email_to_ceo(ceo["email"], ceo_email_data)
-                insert_email_log(
-                    conn, ceo_approval_id, program["program_request_id"], "ceo"
-                )
-                print(
-                    f"📤 CEO {ceo['name']} dikirimin approval {program['nama_program']}"
-                )
-
-        # ===== Head =====
-        last_email_head = get_last_email_log(conn, program["id"], "head")
-        if not last_email_head:
-            head_email_data = {
-                "head_name": program["head_name"],
+            ceo_email_data = {
+                "ceo_name": ceo["name"],
                 "nama_program": program["nama_program"],
                 "judul_episode": program["judul_episode"],
                 "inisiator": program["pembuat"],
                 "approval_uuid": program["uuid"],
                 "app_url": APP_URL,
             }
-            send_email(program["email"], head_email_data)
-            insert_email_log(conn, program["id"], program["program_request_id"], "head")
+
+            send_email_to_ceo(ceo["email"], ceo_email_data)
+            insert_email_log(
+                conn, ceo_approval_id, program["program_request_id"], "ceo"
+            )
+
+        print(f"📤 CEO dikirimin approval {program['nama_program']}")
+
+    # ======= Head per 24 jam =======
+    for row in approvals:
+        last_email_head = get_last_email_log(conn, row["id"], "head")
+        send_head = False
+
+        if not last_email_head:
+            send_head = True
             print(
-                f"📤 Head {program['head_name']} dikirimin reminder {program['nama_program']}"
+                f"🆕 Head {row['head_name']} belum pernah dikirimin email, akan dikirim"
+            )
+        else:
+            sent_at = last_email_head["sent_at"]
+            if isinstance(sent_at, str):
+                sent_at = datetime.strptime(sent_at, "%Y-%m-%d %H:%M:%S")
+            if datetime.now() - sent_at > timedelta(hours=24):
+                send_head = True
+                print(
+                    f"⏰ Sudah >24 jam sejak email terakhir ke Head {row['head_name']}, akan dikirim"
+                )
+            else:
+                print(
+                    f"⏸ Head {row['head_name']} sudah dikirimin email kurang dari 24 jam, skip"
+                )
+
+        if send_head:
+            head_email_data = {
+                "head_name": row["head_name"],
+                "nama_program": row["nama_program"],
+                "judul_episode": row["judul_episode"],
+                "inisiator": row["pembuat"],
+                "approval_uuid": row["uuid"],
+                "app_url": APP_URL,
+            }
+            send_email(row["email"], head_email_data)
+            insert_email_log(conn, row["id"], row["program_request_id"], "head")
+            print(
+                f"📤 Head {row['head_name']} dikirimin reminder {row['nama_program']}"
             )
 
     conn.close()
