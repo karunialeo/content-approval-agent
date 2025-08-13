@@ -5,6 +5,7 @@ from db import (
     get_c_level_users,
     get_last_email_log,
     insert_email_log,
+    insert_ceo_approval,
 )
 from email_sender import send_email, send_email_to_ceo
 from dotenv import load_dotenv
@@ -33,17 +34,26 @@ def check_approvals():
     for program in approvals:
         last_email_ceo = get_last_email_log(conn, program["program_request_id"], "ceo")
         if not last_email_ceo:
-            ceo_email_data = {
-                "ceo_name": ", ".join([ceo["name"] for ceo in c_levels]),
-                "nama_program": program["nama_program"],
-                "judul_episode": program["judul_episode"],
-                "inisiator": program["pembuat"],
-                "approval_uuid": program["uuid"],
-                "app_url": APP_URL,
-            }
             for ceo in c_levels:
+                # Buat approval record untuk CEO supaya ada approval_id
+                ceo_approval_id = insert_ceo_approval(
+                    conn, program["program_request_id"], ceo["id"]
+                )
+
+                ceo_email_data = {
+                    "ceo_name": ceo["name"],
+                    "nama_program": program["nama_program"],
+                    "judul_episode": program["judul_episode"],
+                    "inisiator": program["pembuat"],
+                    "approval_uuid": program["uuid"],
+                    "app_url": APP_URL,
+                }
+
                 send_email_to_ceo(ceo["email"], ceo_email_data)
-            insert_email_log(conn, None, program["program_request_id"], "ceo")
+                insert_email_log(
+                    conn, ceo_approval_id, program["program_request_id"], "ceo"
+                )
+
             print(f"📤 CEO dikirimin approval {program['nama_program']}")
 
     # ======= Head per 24 jam =======
