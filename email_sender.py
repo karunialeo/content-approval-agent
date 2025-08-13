@@ -9,10 +9,9 @@ load_dotenv()
 
 SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-SMTP_USER = os.getenv("SMTP_USER", "your_email@gmail.com")
-SMTP_PASS = os.getenv("SMTP_PASS", "your_email_password")
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASS = os.getenv("SMTP_PASS")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
-APP_URL = os.getenv("APP_URL", "http://localhost")
 
 env = Environment(loader=FileSystemLoader("."))
 
@@ -33,10 +32,10 @@ def send_email(to_email, approval_data):
             server.login(SMTP_USER, SMTP_PASS)
             server.send_message(msg)
 
-        print(f"[{datetime.now()}] Email terkirim ke {to_email}")
+        print(f"[{datetime.now()}] Email Head terkirim ke {to_email}")
         return True
     except Exception as e:
-        print(f"[{datetime.now()}] Gagal kirim email ke {to_email}: {e}")
+        print(f"[{datetime.now()}] Gagal kirim email ke Head {to_email}: {e}")
         return False
 
 

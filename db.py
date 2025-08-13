@@ -1,10 +1,9 @@
-# db.py
 import os
 import pymysql
 import uuid
 from dotenv import load_dotenv
 
-load_dotenv()  # baca .env
+load_dotenv()
 
 
 def get_connection():
@@ -22,9 +21,6 @@ def get_connection():
         return None
 
 
-# ========================
-# Users / C-Level
-# ========================
 def get_c_level_users(conn):
     sql = "SELECT id, name, email FROM users WHERE role_id = 6 AND deleted_at IS NULL"
     with conn.cursor() as cursor:
@@ -32,9 +28,6 @@ def get_c_level_users(conn):
         return cursor.fetchall()
 
 
-# ========================
-# Pending Approvals
-# ========================
 def fetch_pending_approvals(conn):
     sql = """
     SELECT pa.id, pa.uuid, pa.program_request_id, pa.status, pa.created_at,
@@ -54,9 +47,6 @@ def fetch_pending_approvals(conn):
         return cursor.fetchall()
 
 
-# ========================
-# Email Logs
-# ========================
 def get_last_email_log(conn, approval_id, email_type):
     sql = """
     SELECT sent_at FROM approval_email_logs
@@ -79,9 +69,6 @@ def insert_email_log(conn, approval_id, program_request_id, email_type):
     conn.commit()
 
 
-# ========================
-# Insert CEO Approval
-# ========================
 def insert_ceo_approval(conn, program_request_id, ceo_id):
     new_uuid = str(uuid.uuid4())
     sql = """
