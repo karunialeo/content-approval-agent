@@ -74,7 +74,7 @@ def check_approvals():
                 conn, ceo_approval_id, program["program_request_id"], "ceo"
             )
             print(
-                f"[{datetime.now()}] 📤 CEO dikirimin approval {program['nama_program']}"
+                f"[{datetime.now()}] 📤 Approval {program['nama_program']} terkirim ke CEO"
             )
 
     # ======= Head per 24 jam =======
