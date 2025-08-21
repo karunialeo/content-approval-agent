@@ -22,4 +22,5 @@ jobs:
           port: 22 # Port SSH, default 22
           script: |
             # Jalanin script deploy.sh yang udah kita buat di server
-            sh ${{ secrets.PROJECT_PATH }}/deploy.sh
+            cd ${{ secrets.PROJECT_PATH }}
+            ./deploy.sh
