@@ -104,7 +104,7 @@ def check_approvals():
             )
         else:
             print(
-                f"[{datetime.now()}] Skip email Head untuk program '{row['nama_program']}'"
+                f"[{datetime.now()}] Skip email ke Head {row['head_name']} untuk program '{row['nama_program']}'"
             )
 
     conn.close()
