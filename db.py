@@ -41,6 +41,7 @@ def fetch_pending_approvals(conn):
     JOIN users creator ON creator.id = pr.user_id
     WHERE pa.status = 'pending'
       AND TIMESTAMPDIFF(HOUR, pa.created_at, NOW()) > 24
+      AND pa.deleted_at IS NULL
       AND pr.deleted_at IS NULL
     """
     with conn.cursor() as cursor:
