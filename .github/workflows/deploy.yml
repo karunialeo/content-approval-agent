@@ -1,0 +1,25 @@
+name: Deploy to Production Server
+
+# Trigger: jalanin workflow ini setiap kali ada push ke branch 'master'
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    # Pakai runner Ubuntu terbaru dari GitHub
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🚚 Deploy to server
+        # Pakai Action siap jadi buat SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_PRIVATE_KEY }}
+          port: 22 # Port SSH, default 22
+          script: |
+            # Jalanin script deploy.sh yang udah kita buat di server
+            sh ${{ secrets.PROJECT_PATH }}/deploy.sh

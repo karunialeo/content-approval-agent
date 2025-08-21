@@ -100,7 +100,7 @@ def check_approvals():
             send_email(row["email"], head_email_data)
             insert_email_log(conn, row["id"], row["program_request_id"], "head")
             print(
-                f"[{datetime.now()}] 📤 Head {row['head_name']} dikirimin reminder {row['nama_program']}"
+                f"[{datetime.now()}] 📤 Reminder {row['nama_program']} untuk Head {row['head_name']} terkirim"
             )
         else:
             print(
