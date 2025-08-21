@@ -13,7 +13,7 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASS = os.getenv("SMTP_PASS")
 FROM_EMAIL = os.getenv("FROM_EMAIL", SMTP_USER)
 
-env = Environment(loader=FileSystemLoader("."))
+env = Environment(loader=FileSystemLoader("approval_agent/templates"))
 
 template_head = env.get_template("email_template.html")
 template_ceo = env.get_template("email_template_ceo.html")

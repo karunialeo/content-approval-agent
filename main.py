@@ -1,5 +1,5 @@
 import time
-from db import (
+from approval_agent.db import (
     get_connection,
     fetch_pending_approvals,
     get_c_level_users,
@@ -7,7 +7,7 @@ from db import (
     insert_email_log,
     insert_ceo_approval,
 )
-from email_sender import send_email, send_email_to_ceo
+from approval_agent.email_sender import send_email, send_email_to_ceo
 from dotenv import load_dotenv
 import os
 from datetime import datetime, timedelta
